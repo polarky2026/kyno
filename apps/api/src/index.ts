@@ -1,6 +1,7 @@
 import { app } from "./app";
+import { env } from "./env";
 
 export default {
-  port: 3000,
+  port: env.PORT,
   fetch: app.fetch,
 };
