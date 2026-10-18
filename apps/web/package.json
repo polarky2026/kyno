@@ -9,6 +9,14 @@
   },
   "dependencies": {
     "@kyno/contracts": "workspace:*",
-    "@kyno/tokens": "workspace:*"
+    "@kyno/tokens": "workspace:*",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "vite": "^8.3.4"
   }
 }
