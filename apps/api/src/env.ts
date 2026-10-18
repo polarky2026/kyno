@@ -3,6 +3,7 @@ import { z } from "zod";
 const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3000),
+  DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\//, "Must be a PostgreSQL connection URL"),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -16,5 +17,3 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
 
   return result.data;
 }
-
-export const env = parseEnv(process.env);

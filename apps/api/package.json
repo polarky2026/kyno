@@ -4,14 +4,20 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch src/index.ts",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "db:generate": "bun --bun drizzle-kit generate",
+    "db:migrate": "bun --bun drizzle-kit migrate",
+    "db:studio": "bun --bun drizzle-kit studio"
   },
   "dependencies": {
+    "@kyno/contracts": "workspace:*",
+    "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",
-    "zod": "^4.6.7",
-    "@kyno/contracts": "workspace:*"
+    "postgres": "^3.4.9",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.3"
+    "@types/bun": "^1.4.3",
+    "drizzle-kit": "^0.31.11"
   }
 }
