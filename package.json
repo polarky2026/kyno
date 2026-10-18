@@ -1,0 +1,5 @@
+{
+  "name": "kyno",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"]
+}
