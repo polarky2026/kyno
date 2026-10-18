@@ -8,7 +8,8 @@
   },
   "dependencies": {
     "hono": "^4.13.13",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "@kyno/contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.4.3"

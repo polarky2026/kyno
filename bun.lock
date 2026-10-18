@@ -17,7 +17,17 @@
     "apps/api": {
       "name": "@kyno/api",
       "dependencies": {
+        "@kyno/contracts": "workspace:*",
         "hono": "^4.13.13",
+        "zod": "^4.6.7",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.4.3",
+      },
+    },
+    "packages/contracts": {
+      "name": "@kyno/contracts",
+      "dependencies": {
         "zod": "^4.6.7",
       },
       "devDependencies": {
@@ -61,6 +71,8 @@
     "@keyv/serialize": ["@keyv/serialize@1.1.1", "", {}, "sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA=="],
 
     "@kyno/api": ["@kyno/api@workspace:apps/api"],
+
+    "@kyno/contracts": ["@kyno/contracts@workspace:packages/contracts"],
 
     "@types/bun": ["@types/bun@1.4.3", "", { "dependencies": { "bun-types": "1.4.3" } }, "sha512-N67Pqy8JXbAY/j0tNraS3V5mubGvc6rrrNDmDCtZLlFzccbUJPDb0tvgUBC5q4m8ybkP93Jcn1QB+RYQ6PvBhw=="],
 
