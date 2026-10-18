@@ -1,5 +1,8 @@
 {
   "name": "kyno",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"]
+  "workspaces": ["apps/*", "packages/*"],
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
 }
