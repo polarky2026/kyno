@@ -1,9 +1,14 @@
 import { HealthResponseSchema } from "@kyno/contracts";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+
+export const Route = createFileRoute("/")({
+  component: HomePage,
+});
 
 type ApiStatus = "checking" | "online" | "offline";
 
-export function App() {
+function HomePage() {
   const [status, setStatus] = useState<ApiStatus>("checking");
 
   useEffect(() => {
@@ -17,7 +22,7 @@ export function App() {
   }, []);
 
   return (
-    <main className="grid min-h-screen place-content-center gap-3 p-6 text-center">
+    <main className="grid flex-1 place-content-center gap-3 p-6 text-center">
       <p className="text-xs tracking-[0.2em] text-muted uppercase">Your cinema archive</p>
       <h1 className="font-display text-7xl text-brand-text sm:text-8xl">Kyno</h1>
       <p className="text-sm text-muted">

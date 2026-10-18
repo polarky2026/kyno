@@ -1,10 +1,19 @@
-import { createThemeCss } from "@kyno/tokens";
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { App } from "./App";
-import "./styles.css";
 import "@fontsource-variable/fraunces";
 import "@fontsource-variable/manrope";
+import { createThemeCss } from "@kyno/tokens";
+import { createRouter, RouterProvider } from "@tanstack/react-router";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { routeTree } from "./routeTree.gen";
+import "./styles.css";
+
+const router = createRouter({ routeTree });
+
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof router;
+  }
+}
 
 const themeStyle = document.createElement("style");
 themeStyle.textContent = createThemeCss();
@@ -18,6 +27,6 @@ if (!root) {
 
 createRoot(root).render(
   <StrictMode>
-    <App />
+    <RouterProvider router={router} />
   </StrictMode>,
 );
