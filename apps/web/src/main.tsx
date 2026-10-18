@@ -3,6 +3,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./styles.css";
+import "@fontsource-variable/fraunces";
+import "@fontsource-variable/manrope";
 
 const themeStyle = document.createElement("style");
 themeStyle.textContent = createThemeCss();

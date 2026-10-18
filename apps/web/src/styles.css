@@ -1,41 +1,25 @@
-body {
-  margin: 0;
-  background: var(--kyno-background);
-  color: var(--kyno-text-primary);
-  font-family: Georgia, "Times New Roman", serif;
+@import "tailwindcss";
+
+@theme inline {
+  --color-*: initial;
+  --color-background: var(--kyno-background);
+  --color-surface: var(--kyno-surface);
+  --color-border: var(--kyno-border);
+  --color-foreground: var(--kyno-text-primary);
+  --color-muted: var(--kyno-text-secondary);
+  --color-brand: var(--kyno-brand);
+  --color-on-brand: var(--kyno-on-brand);
+  --color-brand-text: var(--kyno-brand-text);
+  --color-accent: var(--kyno-accent);
+  --color-highlight: var(--kyno-highlight);
+
+  --font-*: initial;
+  --font-display: var(--kyno-font-display);
+  --font-sans: var(--kyno-font-sans);
 }
 
-.shell {
-  display: grid;
-  place-content: center;
-  gap: 0.75rem;
-  min-height: 100vh;
-  padding: 1.5rem;
-  text-align: center;
-}
-
-.eyebrow {
-  margin: 0;
-  color: var(--kyno-text-secondary);
-  font-size: 0.75rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-}
-
-.wordmark {
-  margin: 0;
-  color: var(--kyno-brand-text);
-  font-size: clamp(3rem, 10vw, 6rem);
-  font-weight: 400;
-}
-
-.status {
-  color: var(--kyno-text-secondary);
-  font-family: system-ui, sans-serif;
-  font-size: 0.875rem;
-}
-
-.status[data-status="online"]::before {
-  content: "● ";
-  color: var(--kyno-highlight);
+@layer base {
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
 }

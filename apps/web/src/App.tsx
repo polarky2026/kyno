@@ -17,10 +17,15 @@ export function App() {
   }, []);
 
   return (
-    <main className="shell">
-      <p className="eyebrow">Your Cinema Archive</p>
-      <h1 className="wordmark">Kyno</h1>
-      <p className="status" data-status={status}>
+    <main className="grid min-h-screen place-content-center gap-3 p-6 text-center">
+      <p className="text-xs tracking-[0.2em] text-muted uppercase">Your cinema archive</p>
+      <h1 className="font-display text-7xl text-brand-text sm:text-8xl">Kyno</h1>
+      <p className="text-sm text-muted">
+        {status === "online" && (
+          <span aria-hidden="true" className="text-highlight">
+            ●{" "}
+          </span>
+        )}
         API {status}
       </p>
     </main>
