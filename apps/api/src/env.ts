@@ -6,6 +6,8 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\//, "Must be a PostgreSQL connection URL"),
   BETTER_AUTH_SECRET: z.string().min(32, "Must be at least 32 characters"),
   BETTER_AUTH_URL: z.url(),
+  RESEND_API_KEY: z.string().startsWith("re_", "Must be a Resend API key"),
+  EMAIL_FROM: z.string().min(1),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

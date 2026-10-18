@@ -44,3 +44,5 @@ jobs:
           DATABASE_URL: postgres://ci:ci@localhost:5432/ci
           BETTER_AUTH_SECRET: ci-secret-that-is-at-least-32-characters-long
           BETTER_AUTH_URL: http://localhost:5173
+          RESEND_API_KEY: re_ci_placeholder
+          EMAIL_FROM: Kyno <ci@example.com>
