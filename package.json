@@ -13,7 +13,7 @@
     "dev:api": "bun run --filter @kyno/api dev",
     "dev:web": "bun run --filter @kyno/web dev",
     "typecheck": "bun run --filter '*' typecheck",
-    "test": "bun test"
+    "test": "bun run --filter '*' test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

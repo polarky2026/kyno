@@ -40,3 +40,7 @@ jobs:
 
       - name: Test
         run: bun run test
+        env:
+          DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+          BETTER_AUTH_SECRET: ci-secret-that-is-at-least-32-characters-long
+          BETTER_AUTH_URL: http://localhost:5173

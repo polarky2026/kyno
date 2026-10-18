@@ -7,10 +7,13 @@
     "typecheck": "tsc -p .",
     "db:generate": "bun --bun drizzle-kit generate",
     "db:migrate": "bun --bun drizzle-kit migrate",
-    "db:studio": "bun --bun drizzle-kit studio"
+    "db:studio": "bun --bun drizzle-kit studio",
+    "test": "bun test"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.7.10",
     "@kyno/contracts": "workspace:*",
+    "better-auth": "^1.7.10",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",
     "postgres": "^3.4.9",
