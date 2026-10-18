@@ -8,9 +8,12 @@ export const Route = createRootRoute({
 function RootLayout() {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-border px-6 py-4">
+      <header className="flex items-center justify-between border-b border-border px-6 py-4">
         <Link to="/" className="font-display text-2xl text-brand-text">
           Kyno
+        </Link>
+        <Link to="/sign-up" className="text-sm text-muted hover:text-foreground">
+          Create account
         </Link>
       </header>
       <Outlet />

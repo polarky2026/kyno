@@ -13,6 +13,7 @@
     "@kyno/contracts": "workspace:*",
     "@kyno/tokens": "workspace:*",
     "@tanstack/react-router": "^1.170.45",
+    "better-auth": "^1.7.10",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
