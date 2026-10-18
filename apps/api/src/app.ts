@@ -3,7 +3,7 @@ import { Hono } from "hono";
 
 export const app = new Hono();
 
-app.get("/health", (c) => {
+app.get("/api/health", (c) => {
   const body: HealthResponse = { status: "ok" };
   return c.json(body);
 });

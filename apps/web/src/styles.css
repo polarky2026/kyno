@@ -1,0 +1,41 @@
+body {
+  margin: 0;
+  background: var(--kyno-background);
+  color: var(--kyno-text-primary);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.shell {
+  display: grid;
+  place-content: center;
+  gap: 0.75rem;
+  min-height: 100vh;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--kyno-text-secondary);
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.wordmark {
+  margin: 0;
+  color: var(--kyno-brand-text);
+  font-size: clamp(3rem, 10vw, 6rem);
+  font-weight: 400;
+}
+
+.status {
+  color: var(--kyno-text-secondary);
+  font-family: system-ui, sans-serif;
+  font-size: 0.875rem;
+}
+
+.status[data-status="online"]::before {
+  content: "● ";
+  color: var(--kyno-highlight);
+}
