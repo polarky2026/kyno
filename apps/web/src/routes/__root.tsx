@@ -1,4 +1,5 @@
-import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
+import { authClient } from "../lib/auth-client";
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -12,12 +13,52 @@ function RootLayout() {
         <Link to="/" className="font-display text-2xl text-brand-text">
           Kyno
         </Link>
-        <Link to="/sign-up" className="text-sm text-muted hover:text-foreground">
-          Create account
-        </Link>
+        <AccountNav />
       </header>
       <Outlet />
     </div>
+  );
+}
+
+function AccountNav() {
+  const navigate = useNavigate();
+  const { data: session, isPending } = authClient.useSession();
+
+  async function signOut() {
+    await authClient.signOut();
+    await navigate({ to: "/" });
+  }
+
+  if (isPending) {
+    return null;
+  }
+
+  if (!session) {
+    return (
+      <nav className="flex items-center gap-5 text-sm">
+        <Link to="/sign-in" className="text-muted hover:text-foreground">
+          Sign in
+        </Link>
+        <Link to="/sign-up" className="text-muted hover:text-foreground">
+          Create account
+        </Link>
+      </nav>
+    );
+  }
+
+  return (
+    <nav className="flex items-center gap-5 text-sm">
+      <Link to="/library" className="text-muted hover:text-foreground">
+        Library
+      </Link>
+      <button
+        type="button"
+        onClick={() => void signOut()}
+        className="text-muted hover:text-foreground"
+      >
+        Sign out
+      </button>
+    </nav>
   );
 }
 
