@@ -40,9 +40,29 @@ jobs:
 
       - name: Test
         run: bun run test
-        env:
-          DATABASE_URL: postgres://ci:ci@localhost:5432/ci
-          BETTER_AUTH_SECRET: ci-secret-that-is-at-least-32-characters-long
-          BETTER_AUTH_URL: http://localhost:5173
-          RESEND_API_KEY: re_ci_placeholder
-          EMAIL_FROM: Kyno <ci@example.com>
+
+  api:
+    name: Go API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/api/go.mod
+          cache: false
+
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
