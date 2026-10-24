@@ -3,15 +3,19 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 )
 
 type Config struct {
-	AppEnv      string
-	Port        int
-	DatabaseURL string
+	AppEnv       string
+	Port         int
+	DatabaseURL  string
+	AppURL       string
+	ResendAPIKey string
+	EmailFrom    string
 }
 
 func Load() (Config, error) {
@@ -41,6 +45,21 @@ func parse(getenv func(string) string) (Config, error) {
 	if !strings.HasPrefix(cfg.DatabaseURL, "postgres://") &&
 		!strings.HasPrefix(cfg.DatabaseURL, "postgresql://") {
 		errs = append(errs, errors.New("DATABASE_URL must be a PostgreSQL connection URL"))
+	}
+
+	cfg.AppURL = strings.TrimRight(getenv("APP_URL"), "/")
+	if u, err := url.Parse(cfg.AppURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		errs = append(errs, errors.New("APP_URL must be an http or https URL"))
+	}
+
+	cfg.ResendAPIKey = getenv("RESEND_API_KEY")
+	if !strings.HasPrefix(cfg.ResendAPIKey, "re_") {
+		errs = append(errs, errors.New("RESEND_API_KEY must be a Resend API key"))
+	}
+
+	cfg.EmailFrom = getenv("EMAIL_FROM")
+	if cfg.EmailFrom == "" {
+		errs = append(errs, errors.New("EMAIL_FROM is required"))
 	}
 
 	if len(errs) > 0 {

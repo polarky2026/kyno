@@ -12,9 +12,13 @@ import (
 	"time"
 
 	"github.com/polarky2026/kyno/apps/api/internal/api"
+	"github.com/polarky2026/kyno/apps/api/internal/auth"
 	"github.com/polarky2026/kyno/apps/api/internal/config"
 	"github.com/polarky2026/kyno/apps/api/internal/platform/database"
+	"github.com/polarky2026/kyno/apps/api/internal/platform/email"
 )
+
+var _ auth.Mailer = (*email.AuthMailer)(nil)
 
 func main() {
 	if err := run(); err != nil {
@@ -41,9 +45,12 @@ func run() error {
 	defer pool.Close()
 	slog.Info("database connected")
 
+	mailer := email.NewAuthMailer(email.NewResend(cfg.ResendAPIKey, cfg.EmailFrom))
+	authService := auth.NewService(auth.NewPostgresStore(pool), mailer, cfg.AppURL)
+
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           api.NewHandler(),
+		Handler:           api.NewHandler(authService),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,

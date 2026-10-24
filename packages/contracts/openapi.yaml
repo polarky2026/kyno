@@ -15,6 +15,64 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+  /api/auth/sign-up:
+    post:
+      operationId: signUp
+      summary: Create an account and send a verification email
+      description: >
+        Always responds 202 for valid input, whether or not the email is already
+        registered, so the endpoint never reveals which emails have accounts.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignUpRequest"
+      responses:
+        "202":
+          description: The request was accepted
+        "400":
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/auth/verify-email:
+    post:
+      operationId: verifyEmail
+      summary: Verify an email address with the token from the verification email
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailRequest"
+      responses:
+        "204":
+          description: The email address was verified
+        "400":
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/auth/resend-verification:
+    post:
+      operationId: resendVerification
+      summary: Send a new verification email
+      description: Always responds 202, so the endpoint never reveals which emails have accounts.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResendVerificationRequest"
+      responses:
+        "202":
+          description: The request was accepted
 components:
   schemas:
     HealthResponse:
@@ -24,3 +82,37 @@ components:
         status:
           type: string
           enum: [ok]
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    SignUpRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          description: A valid email address
+          maxLength: 254
+        password:
+          type: string
+          minLength: 10
+          maxLength: 128
+    VerifyEmailRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+    ResendVerificationRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
