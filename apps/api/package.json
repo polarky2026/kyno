@@ -2,6 +2,10 @@
   "name": "@kyno/api",
   "private": true,
   "scripts": {
-    "dev": "air"
+    "dev": "set -a && . ./.env && set +a && air",
+    "db:migrate": "set -a && . ./.env && set +a && go tool goose -dir db/migrations postgres \"$DATABASE_URL\" up",
+    "db:rollback": "set -a && . ./.env && set +a && go tool goose -dir db/migrations postgres \"$DATABASE_URL\" down",
+    "db:status": "set -a && . ./.env && set +a && go tool goose -dir db/migrations postgres \"$DATABASE_URL\" status",
+    "db:new": "mkdir -p db/migrations && go tool goose -dir db/migrations -s create"
   }
 }

@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
-	AppEnv string
-	Port   int
+	AppEnv      string
+	Port        int
+	DatabaseURL string
 }
 
 func Load() (Config, error) {
@@ -33,6 +35,12 @@ func parse(getenv func(string) string) (Config, error) {
 			errs = append(errs, fmt.Errorf("PORT must be a valid port number, got %q", raw))
 		}
 		cfg.Port = port
+	}
+
+	cfg.DatabaseURL = getenv("DATABASE_URL")
+	if !strings.HasPrefix(cfg.DatabaseURL, "postgres://") &&
+		!strings.HasPrefix(cfg.DatabaseURL, "postgresql://") {
+		errs = append(errs, errors.New("DATABASE_URL must be a PostgreSQL connection URL"))
 	}
 
 	if len(errs) > 0 {

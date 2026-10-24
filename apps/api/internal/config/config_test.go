@@ -9,8 +9,10 @@ func envFrom(values map[string]string) func(string) string {
 	return func(key string) string { return values[key] }
 }
 
+const testDatabaseURL = "postgres://user:pass@localhost:5432/kyno"
+
 func TestParseAppliesDefaults(t *testing.T) {
-	cfg, err := parse(envFrom(nil))
+	cfg, err := parse(envFrom(map[string]string{"DATABASE_URL": testDatabaseURL}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -20,7 +22,7 @@ func TestParseAppliesDefaults(t *testing.T) {
 }
 
 func TestParseReadsPort(t *testing.T) {
-	cfg, err := parse(envFrom(map[string]string{"PORT": "8080"}))
+	cfg, err := parse(envFrom(map[string]string{"PORT": "8080", "DATABASE_URL": testDatabaseURL}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -38,5 +40,12 @@ func TestParseReportsEveryInvalidVariable(t *testing.T) {
 		if !strings.Contains(err.Error(), name) {
 			t.Errorf("error %q does not mention %s", err, name)
 		}
+	}
+}
+
+func TestParseRequiresDatabaseURL(t *testing.T) {
+	_, err := parse(envFrom(nil))
+	if err == nil || !strings.Contains(err.Error(), "DATABASE_URL") {
+		t.Fatalf("expected a DATABASE_URL error, got %v", err)
 	}
 }

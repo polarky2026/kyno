@@ -13,6 +13,7 @@ import (
 
 	"github.com/polarky2026/kyno/apps/api/internal/api"
 	"github.com/polarky2026/kyno/apps/api/internal/config"
+	"github.com/polarky2026/kyno/apps/api/internal/platform/database"
 )
 
 func main() {
@@ -30,6 +31,16 @@ func run() error {
 
 	slog.SetDefault(newLogger(cfg.AppEnv))
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	pool, err := database.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	slog.Info("database connected")
+
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
 		Handler:           api.NewHandler(),
@@ -38,9 +49,6 @@ func run() error {
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	serverErr := make(chan error, 1)
 	go func() {
