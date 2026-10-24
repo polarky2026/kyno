@@ -4,7 +4,7 @@ import prettier from "eslint-config-prettier";
 import tseslint from "typescript-eslint";
 
 export default defineConfig(
-  { ignores: ["**/dist/**", "**/node_modules/**", "**/routeTree.gen.ts"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "**/routeTree.gen.ts", "**/api.gen.ts"] },
   js.configs.recommended,
   tseslint.configs.recommended,
   prettier,

@@ -1,6 +1,6 @@
-import { HealthResponseSchema } from "@kyno/contracts";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { api } from "../lib/api";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -12,12 +12,9 @@ function HomePage() {
   const [status, setStatus] = useState<ApiStatus>("checking");
 
   useEffect(() => {
-    fetch("/api/health")
-      .then((response) => response.json())
-      .then((data) => {
-        HealthResponseSchema.parse(data);
-        setStatus("online");
-      })
+    api
+      .GET("/api/health")
+      .then(({ data }) => setStatus(data?.status === "ok" ? "online" : "offline"))
       .catch(() => setStatus("offline"));
   }, []);
 

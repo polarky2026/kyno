@@ -1,0 +1,26 @@
+openapi: 3.1.0
+info:
+  title: Kyno API
+  version: 0.1.0
+paths:
+  /api/health:
+    get:
+      operationId: getHealth
+      summary: Check that the API is running
+      tags: [system]
+      responses:
+        "200":
+          description: The API is running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
