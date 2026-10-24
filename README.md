@@ -4,29 +4,34 @@ Your cinema archive. A personal library to rate, rank and revisit the movies and
 
 ## Stack
 
-- **Web:** React, TypeScript, Vite
-- **API:** Hono on Bun
-- **Shared:** Zod contracts and design tokens
-- **Tooling:** TypeScript, ESLint, Prettier, GitHub Actions
+- **Web:** React, TypeScript, Vite, TanStack Router, Tailwind CSS
+- **API:** Go with `net/http`
+- **Shared:** API contract and design tokens
+- **Tooling:** ESLint, Prettier, gofmt, go vet, GitHub Actions
 
 ## Project structure
 
 ```
 apps/
-  api/          Hono API
+  api/          Go API
+    cmd/api/      Entry point
+    internal/     Application code (config, HTTP handlers, platform helpers)
   web/          React app
 packages/
-  contracts/    Request and response schemas shared by the API and the web
-  tokens/       Design tokens (colors and themes) with accessibility checks
+  contracts/    Shared API contract
+  tokens/       Design tokens (colors, themes, typography) with accessibility checks
 ```
 
 ## Getting started
 
-Requirements: [Bun](https://bun.sh) 1.4.
+Requirements:
+
+- [Bun](https://bun.sh) 1.4
+- [Go](https://go.dev) 1.27
+- [air](https://github.com/air-verse/air) for live reload: `go install github.com/air-verse/air@latest`
 
 ```bash
 bun install
-cp apps/api/.env.example apps/api/.env
 ```
 
 Run the API and the web app in two terminals:
@@ -36,7 +41,11 @@ bun run dev:api   # http://localhost:3000
 bun run dev:web   # http://localhost:5173
 ```
 
+The web app proxies `/api` requests to the API during development.
+
 ## Scripts
+
+### Web and shared packages
 
 | Command                | Description                    |
 | ---------------------- | ------------------------------ |
@@ -45,3 +54,13 @@ bun run dev:web   # http://localhost:5173
 | `bun run lint`         | Lint the codebase              |
 | `bun run format`       | Format files with Prettier     |
 | `bun run format:check` | Check formatting without fixes |
+
+### API
+
+Run from `apps/api`:
+
+| Command         | Description                     |
+| --------------- | ------------------------------- |
+| `go test ./...` | Run all tests                   |
+| `go vet ./...`  | Report suspicious constructs    |
+| `gofmt -l .`    | List files that need formatting |
