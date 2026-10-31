@@ -138,6 +138,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/titles/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search movies and series in the external catalog
+         * @description Searches TMDB. Results are not stored; a title enters Kyno's catalog only when it is opened or rated.
+         */
+        get: operations["searchTitles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -184,6 +204,23 @@ export interface components {
         };
         MeResponse: {
             user: components["schemas"]["User"];
+        };
+        /** @enum {string} */
+        TitleKind: "movie" | "series";
+        TitleSearchResult: {
+            /** Format: int64 */
+            tmdbId: number;
+            kind: components["schemas"]["TitleKind"];
+            title: string;
+            originalTitle: string;
+            overview: string;
+            /** @description TMDB image path. Build the URL as https://image.tmdb.org/t/p/{size}{posterPath}. */
+            posterPath?: string;
+            /** @description Release year for movies, first air year for series. Missing when unknown. */
+            year?: number;
+        };
+        TitleSearchResponse: {
+            results: components["schemas"]["TitleSearchResult"][];
         };
     };
     responses: never;
@@ -398,6 +435,57 @@ export interface operations {
             };
             /** @description There is no valid session */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    searchTitles: {
+        parameters: {
+            query: {
+                query: string;
+                /** @description Search only movies or only series. Omit it to search both. */
+                kind?: components["schemas"]["TitleKind"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The matching titles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleSearchResponse"];
+                };
+            };
+            /** @description The query or kind is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description There is no valid session */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The external catalog is unavailable */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

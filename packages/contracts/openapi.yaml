@@ -151,6 +151,53 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /api/titles/search:
+    get:
+      operationId: searchTitles
+      summary: Search movies and series in the external catalog
+      description: >
+        Searches TMDB. Results are not stored; a title enters Kyno's catalog
+        only when it is opened or rated.
+      tags: [titles]
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: kind
+          in: query
+          required: false
+          description: Search only movies or only series. Omit it to search both.
+          schema:
+            $ref: "#/components/schemas/TitleKind"
+      responses:
+        "200":
+          description: The matching titles
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TitleSearchResponse"
+        "400":
+          description: The query or kind is invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: There is no valid session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: The external catalog is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   parameters:
     KynoClient:
@@ -247,3 +294,35 @@ components:
       properties:
         user:
           $ref: "#/components/schemas/User"
+    TitleKind:
+      type: string
+      enum: [movie, series]
+    TitleSearchResult:
+      type: object
+      required: [tmdbId, kind, title, originalTitle, overview]
+      properties:
+        tmdbId:
+          type: integer
+          format: int64
+        kind:
+          $ref: "#/components/schemas/TitleKind"
+        title:
+          type: string
+        originalTitle:
+          type: string
+        overview:
+          type: string
+        posterPath:
+          type: string
+          description: TMDB image path. Build the URL as https://image.tmdb.org/t/p/{size}{posterPath}.
+        year:
+          type: integer
+          description: Release year for movies, first air year for series. Missing when unknown.
+    TitleSearchResponse:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/TitleSearchResult"
