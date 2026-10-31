@@ -16,6 +16,8 @@ import (
 	"github.com/polarky2026/kyno/apps/api/internal/config"
 	"github.com/polarky2026/kyno/apps/api/internal/platform/database"
 	"github.com/polarky2026/kyno/apps/api/internal/platform/email"
+	"github.com/polarky2026/kyno/apps/api/internal/platform/tmdb"
+	"github.com/polarky2026/kyno/apps/api/internal/titles"
 )
 
 var _ auth.Mailer = (*email.AuthMailer)(nil)
@@ -47,10 +49,14 @@ func run() error {
 
 	mailer := email.NewAuthMailer(email.NewResend(cfg.ResendAPIKey, cfg.EmailFrom))
 	authService := auth.NewService(auth.NewPostgresStore(pool), mailer, cfg.AppURL)
+	titlesService := titles.NewService(titles.NewTMDBSource(tmdb.NewClient(cfg.TMDBAPIKey)))
 
 	srv := &http.Server{
-		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           api.NewHandler(authService, api.Options{SecureCookies: cfg.AppEnv == "production"}),
+		Addr: fmt.Sprintf(":%d", cfg.Port),
+		Handler: api.NewHandler(
+			api.Services{Auth: authService, Titles: titlesService},
+			api.Options{SecureCookies: cfg.AppEnv == "production"},
+		),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,

@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -26,6 +27,24 @@ const (
 func (e HealthResponseStatus) Valid() bool {
 	switch e {
 	case Ok:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TitleKind.
+const (
+	Movie  TitleKind = "movie"
+	Series TitleKind = "series"
+)
+
+// Valid indicates whether the value is a known member of the TitleKind enum.
+func (e TitleKind) Valid() bool {
+	switch e {
+	case Movie:
+		return true
+	case Series:
 		return true
 	default:
 		return false
@@ -99,6 +118,29 @@ type SignUpRequest struct {
 	Password string `json:"password"`
 }
 
+// TitleKind defines model for TitleKind.
+type TitleKind string
+
+// TitleSearchResponse defines model for TitleSearchResponse.
+type TitleSearchResponse struct {
+	Results []TitleSearchResult `json:"results"`
+}
+
+// TitleSearchResult defines model for TitleSearchResult.
+type TitleSearchResult struct {
+	Kind          TitleKind `json:"kind"`
+	OriginalTitle string    `json:"originalTitle"`
+	Overview      string    `json:"overview"`
+
+	// PosterPath TMDB image path. Build the URL as https://image.tmdb.org/t/p/{size}{posterPath}.
+	PosterPath *string `json:"posterPath,omitempty"`
+	Title      string  `json:"title"`
+	TmdbId     int64   `json:"tmdbId"`
+
+	// Year Release year for movies, first air year for series. Missing when unknown.
+	Year *int `json:"year,omitempty"`
+}
+
 // User defines model for User.
 type User struct {
 	Email string             `json:"email"`
@@ -128,6 +170,14 @@ type SignInParams struct {
 type VerifyEmailParams struct {
 	// XKynoClient Send "ios" to receive the session token in the body instead of a cookie.
 	XKynoClient *KynoClient `json:"X-Kyno-Client,omitempty"`
+}
+
+// SearchTitlesParams defines parameters for SearchTitles.
+type SearchTitlesParams struct {
+	Query string `form:"query" json:"query"`
+
+	// Kind Search only movies or only series. Omit it to search both.
+	Kind *TitleKind `form:"kind,omitempty" json:"kind,omitempty"`
 }
 
 // ResendVerificationJSONRequestBody defines body for ResendVerification for application/json ContentType.
@@ -165,6 +215,9 @@ type ServerInterface interface {
 	// GetMe Get the signed-in user
 	// (GET /api/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// SearchTitles Search movies and series in the external catalog
+	// (GET /api/titles/search)
+	SearchTitles(w http.ResponseWriter, r *http.Request, params SearchTitlesParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -328,6 +381,52 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 	handler.ServeHTTP(w, r)
 }
 
+// SearchTitles operation middleware
+func (siw *ServerInterfaceWrapper) SearchTitles(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchTitlesParams
+
+	// ------------- Required query parameter "query" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "query", r.URL.Query(), &params.Query, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "query"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "query", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchTitles(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -455,6 +554,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/auth/sign-in", wrapper.SignIn)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/auth/sign-out", wrapper.SignOut)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/me", wrapper.GetMe)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/titles/search", wrapper.SearchTitles)
 
 	return m
 }
@@ -678,6 +778,70 @@ func (response GetMe401JSONResponse) VisitGetMeResponse(w http.ResponseWriter) e
 	return err
 }
 
+type SearchTitlesRequestObject struct {
+	Params SearchTitlesParams
+}
+
+type SearchTitlesResponseObject interface {
+	VisitSearchTitlesResponse(w http.ResponseWriter) error
+}
+
+type SearchTitles200JSONResponse TitleSearchResponse
+
+func (response SearchTitles200JSONResponse) VisitSearchTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchTitles400JSONResponse ErrorResponse
+
+func (response SearchTitles400JSONResponse) VisitSearchTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchTitles401JSONResponse ErrorResponse
+
+func (response SearchTitles401JSONResponse) VisitSearchTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchTitles502JSONResponse ErrorResponse
+
+func (response SearchTitles502JSONResponse) VisitSearchTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ResendVerification Send a new verification email
@@ -701,6 +865,9 @@ type StrictServerInterface interface {
 	// GetMe Get the signed-in user
 	// (GET /api/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// SearchTitles Search movies and series in the external catalog
+	// (GET /api/titles/search)
+	SearchTitles(ctx context.Context, request SearchTitlesRequestObject) (SearchTitlesResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -935,6 +1102,32 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMeResponseObject); ok {
 		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SearchTitles operation middleware
+func (sh *strictHandler) SearchTitles(w http.ResponseWriter, r *http.Request, params SearchTitlesParams) {
+	var request SearchTitlesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SearchTitles(ctx, request.(SearchTitlesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SearchTitles")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SearchTitlesResponseObject); ok {
+		if err := validResponse.VisitSearchTitlesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

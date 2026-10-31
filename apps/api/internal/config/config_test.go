@@ -11,6 +11,7 @@ func validEnv() map[string]string {
 		"APP_URL":        "http://localhost:5173/",
 		"RESEND_API_KEY": "re_test",
 		"EMAIL_FROM":     "Kyno <kyno@example.com>",
+		"TMDB_API_KEY":   "tmdb_test",
 	}
 }
 
@@ -49,7 +50,7 @@ func TestParseRequiresEveryVariable(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error")
 	}
-	for _, name := range []string{"DATABASE_URL", "APP_URL", "RESEND_API_KEY", "EMAIL_FROM"} {
+	for _, name := range []string{"DATABASE_URL", "APP_URL", "RESEND_API_KEY", "EMAIL_FROM", "TMDB_API_KEY"} {
 		if !strings.Contains(err.Error(), name) {
 			t.Errorf("error does not mention %s", name)
 		}

@@ -8,7 +8,10 @@ import (
 	"github.com/polarky2026/kyno/apps/api/internal/auth"
 )
 
-const invalidBody = "Invalid request body"
+const (
+	invalidBody    = "Invalid request body"
+	signInRequired = "Sign in to continue."
+)
 
 func (s *Server) SignUp(ctx context.Context, req SignUpRequestObject) (SignUpResponseObject, error) {
 	if req.Body == nil {
@@ -106,7 +109,7 @@ func (s *Server) SignOut(ctx context.Context, _ SignOutRequestObject) (SignOutRe
 func (s *Server) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeResponseObject, error) {
 	rs := sessionFrom(ctx)
 	if rs.result == nil {
-		return GetMe401JSONResponse{Error: "Sign in to continue."}, nil
+		return GetMe401JSONResponse{Error: signInRequired}, nil
 	}
 	return GetMe200JSONResponse{User: toAPIUser(rs.result.User)}, nil
 }

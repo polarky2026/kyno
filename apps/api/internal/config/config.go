@@ -16,6 +16,7 @@ type Config struct {
 	AppURL       string
 	ResendAPIKey string
 	EmailFrom    string
+	TMDBAPIKey   string
 }
 
 func Load() (Config, error) {
@@ -60,6 +61,11 @@ func parse(getenv func(string) string) (Config, error) {
 	cfg.EmailFrom = getenv("EMAIL_FROM")
 	if cfg.EmailFrom == "" {
 		errs = append(errs, errors.New("EMAIL_FROM is required"))
+	}
+
+	cfg.TMDBAPIKey = getenv("TMDB_API_KEY")
+	if cfg.TMDBAPIKey == "" {
+		errs = append(errs, errors.New("TMDB_API_KEY is required"))
 	}
 
 	if len(errs) > 0 {

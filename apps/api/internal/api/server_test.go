@@ -11,7 +11,7 @@ import (
 func TestHealth(t *testing.T) {
 	rec := httptest.NewRecorder()
 
-	NewHandler(nil, Options{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/health", nil))
+	NewHandler(Services{}, Options{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/health", nil))
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
@@ -28,7 +28,7 @@ func TestHealth(t *testing.T) {
 func TestUnknownAPIRouteReturnsJSON404(t *testing.T) {
 	rec := httptest.NewRecorder()
 
-	NewHandler(nil, Options{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/does-not-exist", nil))
+	NewHandler(Services{}, Options{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/does-not-exist", nil))
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", rec.Code)
@@ -43,7 +43,7 @@ func TestSignUpRejectsMalformedJSON(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/sign-up", strings.NewReader("{not json"))
 	req.Header.Set("Content-Type", "application/json")
 
-	NewHandler(nil, Options{}).ServeHTTP(rec, req)
+	NewHandler(Services{}, Options{}).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", rec.Code)
@@ -56,10 +56,33 @@ func TestSignUpRejectsMalformedJSON(t *testing.T) {
 func TestMeWithoutSessionReturns401(t *testing.T) {
 	rec := httptest.NewRecorder()
 
-	NewHandler(nil, Options{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/me", nil))
+	NewHandler(Services{}, Options{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/me", nil))
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/json" {
+		t.Fatalf("Content-Type = %q, want application/json", got)
+	}
+}
+
+func TestSearchTitlesWithoutSessionReturns401(t *testing.T) {
+	rec := httptest.NewRecorder()
+
+	NewHandler(Services{}, Options{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/titles/search?query=dune", nil))
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
+
+func TestSearchTitlesWithoutQueryReturnsJSON400(t *testing.T) {
+	rec := httptest.NewRecorder()
+
+	NewHandler(Services{}, Options{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/titles/search", nil))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
 	}
 	if got := rec.Header().Get("Content-Type"); got != "application/json" {
 		t.Fatalf("Content-Type = %q, want application/json", got)
