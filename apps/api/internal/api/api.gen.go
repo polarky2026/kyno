@@ -88,6 +88,12 @@ type HealthResponse struct {
 // HealthResponseStatus defines model for HealthResponse.Status.
 type HealthResponseStatus string
 
+// ImportTitleRequest defines model for ImportTitleRequest.
+type ImportTitleRequest struct {
+	Kind   TitleKind `json:"kind"`
+	TmdbId int64     `json:"tmdbId"`
+}
+
 // MeResponse defines model for MeResponse.
 type MeResponse struct {
 	User User `json:"user"`
@@ -96,6 +102,17 @@ type MeResponse struct {
 // ResendVerificationRequest defines model for ResendVerificationRequest.
 type ResendVerificationRequest struct {
 	Email string `json:"email"`
+}
+
+// Season defines model for Season.
+type Season struct {
+	AirDate *openapi_types.Date `json:"airDate,omitempty"`
+
+	// Aired Whether the season has started airing.
+	Aired        bool   `json:"aired"`
+	EpisodeCount int    `json:"episodeCount"`
+	Name         string `json:"name"`
+	Number       int    `json:"number"`
 }
 
 // SessionToken defines model for SessionToken.
@@ -116,6 +133,28 @@ type SignUpRequest struct {
 	Email    string `json:"email"`
 	Name     string `json:"name"`
 	Password string `json:"password"`
+}
+
+// Title defines model for Title.
+type Title struct {
+	Id   openapi_types.UUID `json:"id"`
+	Kind TitleKind          `json:"kind"`
+
+	// LibraryYear The year the title is grouped under in the library: a movie's release year, or the year of a series' latest aired season. Missing when unknown, which groups the title under "No year".
+	LibraryYear   *int   `json:"libraryYear,omitempty"`
+	OriginalTitle string `json:"originalTitle"`
+	Overview      string `json:"overview"`
+
+	// PosterPath TMDB image path. Build the URL as https://image.tmdb.org/t/p/{size}{posterPath}.
+	PosterPath *string `json:"posterPath,omitempty"`
+
+	// ReleaseDate Release date for movies, first air date for series. Missing when unknown.
+	ReleaseDate *openapi_types.Date `json:"releaseDate,omitempty"`
+
+	// Seasons The seasons of a series, without specials. Always empty for movies.
+	Seasons []Season `json:"seasons"`
+	Title   string   `json:"title"`
+	TmdbId  int64    `json:"tmdbId"`
 }
 
 // TitleKind defines model for TitleKind.
@@ -192,6 +231,9 @@ type SignUpJSONRequestBody = SignUpRequest
 // VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
 type VerifyEmailJSONRequestBody = VerifyEmailRequest
 
+// ImportTitleJSONRequestBody defines body for ImportTitle for application/json ContentType.
+type ImportTitleJSONRequestBody = ImportTitleRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ResendVerification Send a new verification email
@@ -215,9 +257,15 @@ type ServerInterface interface {
 	// GetMe Get the signed-in user
 	// (GET /api/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// ImportTitle Add a title to the catalog, or refresh it
+	// (POST /api/titles)
+	ImportTitle(w http.ResponseWriter, r *http.Request)
 	// SearchTitles Search movies and series in the external catalog
 	// (GET /api/titles/search)
 	SearchTitles(w http.ResponseWriter, r *http.Request, params SearchTitlesParams)
+	// GetTitle Get a title from the catalog
+	// (GET /api/titles/{id})
+	GetTitle(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -381,6 +429,20 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 	handler.ServeHTTP(w, r)
 }
 
+// ImportTitle operation middleware
+func (siw *ServerInterfaceWrapper) ImportTitle(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ImportTitle(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SearchTitles operation middleware
 func (siw *ServerInterfaceWrapper) SearchTitles(w http.ResponseWriter, r *http.Request) {
 
@@ -418,6 +480,32 @@ func (siw *ServerInterfaceWrapper) SearchTitles(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SearchTitles(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTitle operation middleware
+func (siw *ServerInterfaceWrapper) GetTitle(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTitle(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -555,6 +643,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/auth/sign-out", wrapper.SignOut)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/me", wrapper.GetMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/titles/search", wrapper.SearchTitles)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/titles", wrapper.ImportTitle)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/titles/{id}", wrapper.GetTitle)
 
 	return m
 }
@@ -778,6 +868,84 @@ func (response GetMe401JSONResponse) VisitGetMeResponse(w http.ResponseWriter) e
 	return err
 }
 
+type ImportTitleRequestObject struct {
+	Body *ImportTitleJSONRequestBody
+}
+
+type ImportTitleResponseObject interface {
+	VisitImportTitleResponse(w http.ResponseWriter) error
+}
+
+type ImportTitle200JSONResponse Title
+
+func (response ImportTitle200JSONResponse) VisitImportTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportTitle400JSONResponse ErrorResponse
+
+func (response ImportTitle400JSONResponse) VisitImportTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportTitle401JSONResponse ErrorResponse
+
+func (response ImportTitle401JSONResponse) VisitImportTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportTitle404JSONResponse ErrorResponse
+
+func (response ImportTitle404JSONResponse) VisitImportTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportTitle502JSONResponse ErrorResponse
+
+func (response ImportTitle502JSONResponse) VisitImportTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SearchTitlesRequestObject struct {
 	Params SearchTitlesParams
 }
@@ -842,6 +1010,70 @@ func (response SearchTitles502JSONResponse) VisitSearchTitlesResponse(w http.Res
 	return err
 }
 
+type GetTitleRequestObject struct {
+	Id openapi_types.UUID `json:"id"`
+}
+
+type GetTitleResponseObject interface {
+	VisitGetTitleResponse(w http.ResponseWriter) error
+}
+
+type GetTitle200JSONResponse Title
+
+func (response GetTitle200JSONResponse) VisitGetTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTitle400JSONResponse ErrorResponse
+
+func (response GetTitle400JSONResponse) VisitGetTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTitle401JSONResponse ErrorResponse
+
+func (response GetTitle401JSONResponse) VisitGetTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTitle404JSONResponse ErrorResponse
+
+func (response GetTitle404JSONResponse) VisitGetTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ResendVerification Send a new verification email
@@ -865,9 +1097,15 @@ type StrictServerInterface interface {
 	// GetMe Get the signed-in user
 	// (GET /api/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// ImportTitle Add a title to the catalog, or refresh it
+	// (POST /api/titles)
+	ImportTitle(ctx context.Context, request ImportTitleRequestObject) (ImportTitleResponseObject, error)
 	// SearchTitles Search movies and series in the external catalog
 	// (GET /api/titles/search)
 	SearchTitles(ctx context.Context, request SearchTitlesRequestObject) (SearchTitlesResponseObject, error)
+	// GetTitle Get a title from the catalog
+	// (GET /api/titles/{id})
+	GetTitle(ctx context.Context, request GetTitleRequestObject) (GetTitleResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -1109,6 +1347,37 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ImportTitle operation middleware
+func (sh *strictHandler) ImportTitle(w http.ResponseWriter, r *http.Request) {
+	var request ImportTitleRequestObject
+
+	var body ImportTitleJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ImportTitle(ctx, request.(ImportTitleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ImportTitle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ImportTitleResponseObject); ok {
+		if err := validResponse.VisitImportTitleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // SearchTitles operation middleware
 func (sh *strictHandler) SearchTitles(w http.ResponseWriter, r *http.Request, params SearchTitlesParams) {
 	var request SearchTitlesRequestObject
@@ -1128,6 +1397,32 @@ func (sh *strictHandler) SearchTitles(w http.ResponseWriter, r *http.Request, pa
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SearchTitlesResponseObject); ok {
 		if err := validResponse.VisitSearchTitlesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTitle operation middleware
+func (sh *strictHandler) GetTitle(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request GetTitleRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTitle(ctx, request.(GetTitleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTitle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTitleResponseObject); ok {
+		if err := validResponse.VisitGetTitleResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

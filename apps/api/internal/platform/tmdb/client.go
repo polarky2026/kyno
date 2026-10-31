@@ -117,6 +117,53 @@ func (c *Client) search(ctx context.Context, path, query, mediaType string) ([]S
 	return body.Results, nil
 }
 
+// Movie is TMDB's movie detail.
+type Movie struct {
+	ID            int64  `json:"id"`
+	Title         string `json:"title"`
+	OriginalTitle string `json:"original_title"`
+	Overview      string `json:"overview"`
+	PosterPath    string `json:"poster_path"`
+	ReleaseDate   string `json:"release_date"`
+}
+
+// TV is TMDB's TV show detail, with a summary of every season.
+type TV struct {
+	ID           int64      `json:"id"`
+	Name         string     `json:"name"`
+	OriginalName string     `json:"original_name"`
+	Overview     string     `json:"overview"`
+	PosterPath   string     `json:"poster_path"`
+	FirstAirDate string     `json:"first_air_date"`
+	Seasons      []TVSeason `json:"seasons"`
+}
+
+// TVSeason is a season summary. Season 0 holds the specials.
+type TVSeason struct {
+	SeasonNumber int    `json:"season_number"`
+	Name         string `json:"name"`
+	AirDate      string `json:"air_date"`
+	EpisodeCount int    `json:"episode_count"`
+}
+
+// GetMovie returns a movie's detail, or ErrNotFound.
+func (c *Client) GetMovie(ctx context.Context, id int64) (Movie, error) {
+	var movie Movie
+	if err := c.get(ctx, fmt.Sprintf("/movie/%d", id), url.Values{}, &movie); err != nil {
+		return Movie{}, err
+	}
+	return movie, nil
+}
+
+// GetTV returns a TV show's detail, or ErrNotFound.
+func (c *Client) GetTV(ctx context.Context, id int64) (TV, error) {
+	var show TV
+	if err := c.get(ctx, fmt.Sprintf("/tv/%d", id), url.Values{}, &show); err != nil {
+		return TV{}, err
+	}
+	return show, nil
+}
+
 func (c *Client) get(ctx context.Context, path string, params url.Values, out any) error {
 	params.Set("api_key", c.apiKey)
 	params.Set("language", c.language)

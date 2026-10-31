@@ -49,7 +49,10 @@ func run() error {
 
 	mailer := email.NewAuthMailer(email.NewResend(cfg.ResendAPIKey, cfg.EmailFrom))
 	authService := auth.NewService(auth.NewPostgresStore(pool), mailer, cfg.AppURL)
-	titlesService := titles.NewService(titles.NewTMDBSource(tmdb.NewClient(cfg.TMDBAPIKey)))
+	titlesService := titles.NewService(
+		titles.NewPostgresStore(pool),
+		titles.NewTMDBSource(tmdb.NewClient(cfg.TMDBAPIKey)),
+	)
 
 	srv := &http.Server{
 		Addr: fmt.Sprintf(":%d", cfg.Port),

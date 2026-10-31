@@ -88,3 +88,33 @@ func TestSearchTitlesWithoutQueryReturnsJSON400(t *testing.T) {
 		t.Fatalf("Content-Type = %q, want application/json", got)
 	}
 }
+
+func TestTitleEndpointsWithoutSessionReturn401(t *testing.T) {
+	requests := []*http.Request{
+		httptest.NewRequest(http.MethodPost, "/api/titles", strings.NewReader(`{"kind":"movie","tmdbId":438631}`)),
+		httptest.NewRequest(http.MethodGet, "/api/titles/6e6f7a45-1b2c-4d3e-8f90-123456789abc", nil),
+	}
+	for _, req := range requests {
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		NewHandler(Services{}, Options{}).ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s %s status = %d, want 401", req.Method, req.URL.Path, rec.Code)
+		}
+	}
+}
+
+func TestGetTitleWithInvalidIDReturnsJSON400(t *testing.T) {
+	rec := httptest.NewRecorder()
+
+	NewHandler(Services{}, Options{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/titles/not-a-uuid", nil))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/json" {
+		t.Fatalf("Content-Type = %q, want application/json", got)
+	}
+}

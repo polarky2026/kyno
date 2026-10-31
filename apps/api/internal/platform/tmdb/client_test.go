@@ -83,6 +83,44 @@ func TestSingleTypeSearchesFillInTheMediaType(t *testing.T) {
 	}
 }
 
+func TestGetMovieAndGetTV(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("api_key") != testAPIKey || r.URL.Query().Get("language") != "en-US" {
+			t.Errorf("missing api_key or language in %s", r.URL)
+		}
+		switch r.URL.Path {
+		case "/movie/438631":
+			_, _ = w.Write([]byte(`{"id":438631,"title":"Dune","original_title":"Dune","release_date":"2021-09-15","poster_path":"/dune.jpg"}`))
+		case "/tv/1399":
+			_, _ = w.Write([]byte(`{"id":1399,"name":"Game of Thrones","first_air_date":"2011-04-17","seasons":[
+				{"season_number":0,"name":"Specials","air_date":"2010-12-05","episode_count":7},
+				{"season_number":1,"name":"Season 1","air_date":"2011-04-17","episode_count":10}
+			]}`))
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient(testAPIKey, WithBaseURL(server.URL))
+
+	movie, err := client.GetMovie(context.Background(), 438631)
+	if err != nil {
+		t.Fatalf("GetMovie: %v", err)
+	}
+	if movie.Title != "Dune" || movie.ReleaseDate != "2021-09-15" || movie.PosterPath != "/dune.jpg" {
+		t.Errorf("movie = %+v", movie)
+	}
+
+	show, err := client.GetTV(context.Background(), 1399)
+	if err != nil {
+		t.Fatalf("GetTV: %v", err)
+	}
+	if show.Name != "Game of Thrones" || len(show.Seasons) != 2 || show.Seasons[1].EpisodeCount != 10 {
+		t.Errorf("show = %+v", show)
+	}
+}
+
 func TestUnexpectedStatusIsAnError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)

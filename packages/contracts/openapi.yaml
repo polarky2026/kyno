@@ -198,6 +198,90 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /api/titles:
+    post:
+      operationId: importTitle
+      summary: Add a title to the catalog, or refresh it
+      description: >
+        Brings a title from TMDB into Kyno's catalog the first time it is
+        opened, and refreshes it when the stored copy is more than a day old.
+        Calling it again for the same title never duplicates it. It doesn't add
+        the title to anyone's library.
+      tags: [titles]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportTitleRequest"
+      responses:
+        "200":
+          description: The title as stored in the catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Title"
+        "400":
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: There is no valid session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: TMDB has no such title
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: The external catalog is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/titles/{id}:
+    get:
+      operationId: getTitle
+      summary: Get a title from the catalog
+      tags: [titles]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The title
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Title"
+        "400":
+          description: The id is invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: There is no valid session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: The title isn't in the catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   parameters:
     KynoClient:
@@ -326,3 +410,66 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TitleSearchResult"
+    ImportTitleRequest:
+      type: object
+      required: [kind, tmdbId]
+      properties:
+        kind:
+          $ref: "#/components/schemas/TitleKind"
+        tmdbId:
+          type: integer
+          format: int64
+          minimum: 1
+    Title:
+      type: object
+      required: [id, kind, tmdbId, title, originalTitle, overview, seasons]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/TitleKind"
+        tmdbId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        originalTitle:
+          type: string
+        overview:
+          type: string
+        posterPath:
+          type: string
+          description: TMDB image path. Build the URL as https://image.tmdb.org/t/p/{size}{posterPath}.
+        releaseDate:
+          type: string
+          format: date
+          description: Release date for movies, first air date for series. Missing when unknown.
+        libraryYear:
+          type: integer
+          description: >
+            The year the title is grouped under in the library: a movie's release
+            year, or the year of a series' latest aired season. Missing when
+            unknown, which groups the title under "No year".
+        seasons:
+          type: array
+          description: The seasons of a series, without specials. Always empty for movies.
+          items:
+            $ref: "#/components/schemas/Season"
+    Season:
+      type: object
+      required: [number, name, episodeCount, aired]
+      properties:
+        number:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+        airDate:
+          type: string
+          format: date
+        episodeCount:
+          type: integer
+        aired:
+          type: boolean
+          description: Whether the season has started airing.

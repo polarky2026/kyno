@@ -17,6 +17,17 @@ type EmailVerificationToken struct {
 	CreatedAt time.Time
 }
 
+type Season struct {
+	ID           uuid.UUID
+	TitleID      uuid.UUID
+	SeasonNumber int32
+	Name         string
+	AirDate      *time.Time
+	EpisodeCount int32
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
 type Session struct {
 	ID         uuid.UUID
 	UserID     uuid.UUID
@@ -24,6 +35,20 @@ type Session struct {
 	ExpiresAt  time.Time
 	CreatedAt  time.Time
 	LastUsedAt time.Time
+}
+
+type Title struct {
+	ID            uuid.UUID
+	Kind          string
+	TmdbID        int64
+	Title         string
+	OriginalTitle string
+	Overview      string
+	PosterPath    *string
+	ReleaseDate   *time.Time
+	SyncedAt      time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type User struct {

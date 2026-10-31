@@ -1,5 +1,5 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
 import { api } from "../lib/api";
@@ -18,7 +18,7 @@ function SignUpPage() {
   const [isPending, setIsPending] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") ?? "");

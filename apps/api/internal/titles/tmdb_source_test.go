@@ -2,6 +2,7 @@ package titles
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -46,6 +47,50 @@ func TestTMDBSourceMapsMoviesAndShowsAndSkipsPeople(t *testing.T) {
 
 	if results[2].Year != nil {
 		t.Errorf("a title without a date must have no year, got %d", *results[2].Year)
+	}
+}
+
+func TestTMDBSourceGetTitle(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/movie/438631":
+			_, _ = w.Write([]byte(`{"id":438631,"title":"Dune","original_title":"Dune","release_date":"2021-09-15","poster_path":"/dune.jpg"}`))
+		case "/tv/1399":
+			_, _ = w.Write([]byte(`{"id":1399,"name":"Game of Thrones","original_name":"Game of Thrones","first_air_date":"2011-04-17","seasons":[
+				{"season_number":0,"name":"Specials","air_date":"2010-12-05","episode_count":7},
+				{"season_number":1,"name":"Season 1","air_date":"2011-04-17","episode_count":10},
+				{"season_number":2,"name":"Season 2","air_date":"","episode_count":0}
+			]}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	source := NewTMDBSource(tmdb.NewClient("key", tmdb.WithBaseURL(server.URL)))
+
+	movie, err := source.GetTitle(context.Background(), KindMovie, 438631)
+	if err != nil {
+		t.Fatalf("GetTitle(movie): %v", err)
+	}
+	if movie.Kind != KindMovie || movie.Title != "Dune" || movie.ReleaseDate == nil ||
+		movie.ReleaseDate.Year() != 2021 || len(movie.Seasons) != 0 {
+		t.Errorf("movie = %+v", movie)
+	}
+
+	show, err := source.GetTitle(context.Background(), KindSeries, 1399)
+	if err != nil {
+		t.Fatalf("GetTitle(series): %v", err)
+	}
+	if show.Kind != KindSeries || show.Title != "Game of Thrones" || len(show.Seasons) != 3 {
+		t.Fatalf("show = %+v", show)
+	}
+	if show.Seasons[2].AirDate != nil {
+		t.Error("a season without an air date must have a nil AirDate")
+	}
+
+	if _, err := source.GetTitle(context.Background(), KindMovie, 1); !errors.Is(err, ErrNotFound) {
+		t.Errorf("unknown title error = %v; want ErrNotFound", err)
 	}
 }
 

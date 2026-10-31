@@ -2,6 +2,7 @@ package titles
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/polarky2026/kyno/apps/api/internal/platform/tmdb"
@@ -46,7 +47,7 @@ func (s *TMDBSource) Search(ctx context.Context, query string, kind *Kind) ([]Se
 				OriginalTitle: r.OriginalTitle,
 				Overview:      r.Overview,
 				PosterPath:    r.PosterPath,
-				Year:          yearOf(r.ReleaseDate),
+				Year:          yearOfDate(dateOf(r.ReleaseDate)),
 			})
 		case "tv":
 			results = append(results, SearchResult{
@@ -56,7 +57,7 @@ func (s *TMDBSource) Search(ctx context.Context, query string, kind *Kind) ([]Se
 				OriginalTitle: r.OriginalName,
 				Overview:      r.Overview,
 				PosterPath:    r.PosterPath,
-				Year:          yearOf(r.FirstAirDate),
+				Year:          yearOfDate(dateOf(r.FirstAirDate)),
 			})
 		}
 		// People and any other media types are not part of the catalog.
@@ -64,13 +65,63 @@ func (s *TMDBSource) Search(ctx context.Context, query string, kind *Kind) ([]Se
 	return results, nil
 }
 
-// yearOf returns the year of a TMDB date ("2006-01-02"), or nil when TMDB
-// doesn't know the date yet.
-func yearOf(date string) *int {
+func (s *TMDBSource) GetTitle(ctx context.Context, kind Kind, tmdbID int64) (ExternalTitle, error) {
+	if kind == KindMovie {
+		movie, err := s.client.GetMovie(ctx, tmdbID)
+		if err != nil {
+			return ExternalTitle{}, notFoundOr(err)
+		}
+		return ExternalTitle{
+			Kind:          KindMovie,
+			TMDBID:        movie.ID,
+			Title:         movie.Title,
+			OriginalTitle: movie.OriginalTitle,
+			Overview:      movie.Overview,
+			PosterPath:    movie.PosterPath,
+			ReleaseDate:   dateOf(movie.ReleaseDate),
+		}, nil
+	}
+
+	show, err := s.client.GetTV(ctx, tmdbID)
+	if err != nil {
+		return ExternalTitle{}, notFoundOr(err)
+	}
+
+	seasons := make([]Season, 0, len(show.Seasons))
+	for _, season := range show.Seasons {
+		seasons = append(seasons, Season{
+			Number:       season.SeasonNumber,
+			Name:         season.Name,
+			AirDate:      dateOf(season.AirDate),
+			EpisodeCount: season.EpisodeCount,
+		})
+	}
+
+	return ExternalTitle{
+		Kind:          KindSeries,
+		TMDBID:        show.ID,
+		Title:         show.Name,
+		OriginalTitle: show.OriginalName,
+		Overview:      show.Overview,
+		PosterPath:    show.PosterPath,
+		ReleaseDate:   dateOf(show.FirstAirDate),
+		Seasons:       seasons,
+	}, nil
+}
+
+func notFoundOr(err error) error {
+	if errors.Is(err, tmdb.ErrNotFound) {
+		return ErrNotFound
+	}
+	return err
+}
+
+// dateOf parses a TMDB date ("2006-01-02"). It returns nil when TMDB doesn't
+// know the date yet and sends an empty string.
+func dateOf(date string) *time.Time {
 	t, err := time.Parse(time.DateOnly, date)
 	if err != nil {
 		return nil
 	}
-	year := t.Year()
-	return &year
+	return &t
 }

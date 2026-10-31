@@ -158,6 +158,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/titles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a title to the catalog, or refresh it
+         * @description Brings a title from TMDB into Kyno's catalog the first time it is opened, and refreshes it when the stored copy is more than a day old. Calling it again for the same title never duplicates it. It doesn't add the title to anyone's library.
+         */
+        post: operations["importTitle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/titles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a title from the catalog */
+        get: operations["getTitle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -221,6 +258,41 @@ export interface components {
         };
         TitleSearchResponse: {
             results: components["schemas"]["TitleSearchResult"][];
+        };
+        ImportTitleRequest: {
+            kind: components["schemas"]["TitleKind"];
+            /** Format: int64 */
+            tmdbId: number;
+        };
+        Title: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["TitleKind"];
+            /** Format: int64 */
+            tmdbId: number;
+            title: string;
+            originalTitle: string;
+            overview: string;
+            /** @description TMDB image path. Build the URL as https://image.tmdb.org/t/p/{size}{posterPath}. */
+            posterPath?: string;
+            /**
+             * Format: date
+             * @description Release date for movies, first air date for series. Missing when unknown.
+             */
+            releaseDate?: string;
+            /** @description The year the title is grouped under in the library: a movie's release year, or the year of a series' latest aired season. Missing when unknown, which groups the title under "No year". */
+            libraryYear?: number;
+            /** @description The seasons of a series, without specials. Always empty for movies. */
+            seasons: components["schemas"]["Season"][];
+        };
+        Season: {
+            number: number;
+            name: string;
+            /** Format: date */
+            airDate?: string;
+            episodeCount: number;
+            /** @description Whether the season has started airing. */
+            aired: boolean;
         };
     };
     responses: never;
@@ -486,6 +558,115 @@ export interface operations {
             };
             /** @description The external catalog is unavailable */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    importTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportTitleRequest"];
+            };
+        };
+        responses: {
+            /** @description The title as stored in the catalog */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Title"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description There is no valid session */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description TMDB has no such title */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The external catalog is unavailable */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The title */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Title"];
+                };
+            };
+            /** @description The id is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description There is no valid session */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The title isn't in the catalog */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
