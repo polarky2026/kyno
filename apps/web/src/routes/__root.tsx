@@ -1,7 +1,9 @@
-import { createRootRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
-import { authClient } from "../lib/auth-client";
+import { createRootRoute, Link, Outlet, useNavigate, useRouter } from "@tanstack/react-router";
+import { api } from "../lib/api";
+import { fetchCurrentUser } from "../lib/session";
 
 export const Route = createRootRoute({
+  beforeLoad: async () => ({ user: await fetchCurrentUser() }),
   component: RootLayout,
   notFoundComponent: NotFound,
 });
@@ -21,19 +23,17 @@ function RootLayout() {
 }
 
 function AccountNav() {
+  const { user } = Route.useRouteContext();
   const navigate = useNavigate();
-  const { data: session, isPending } = authClient.useSession();
+  const router = useRouter();
 
   async function signOut() {
-    await authClient.signOut();
+    await api.POST("/api/auth/sign-out");
     await navigate({ to: "/" });
+    await router.invalidate();
   }
 
-  if (isPending) {
-    return null;
-  }
-
-  if (!session) {
+  if (!user) {
     return (
       <nav className="flex items-center gap-5 text-sm">
         <Link to="/sign-in" className="text-muted hover:text-foreground">

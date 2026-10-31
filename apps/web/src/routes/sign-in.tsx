@@ -1,10 +1,15 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
+import { useState, type SubmitEvent } from "react";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
-import { authClient } from "../lib/auth-client";
+import { api } from "../lib/api";
 
 export const Route = createFileRoute("/sign-in")({
+  beforeLoad: ({ context }) => {
+    if (context.user) {
+      throw redirect({ to: "/library" });
+    }
+  },
   component: SignInPage,
 });
 
@@ -13,7 +18,7 @@ function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") ?? "");
@@ -22,20 +27,20 @@ function SignInPage() {
     setIsPending(true);
     setError(null);
 
-    const { error } = await authClient.signIn.email({ email, password });
+    try {
+      const { error } = await api.POST("/api/auth/sign-in", { body: { email, password } });
 
-    setIsPending(false);
+      if (error) {
+        setError(error.error);
+        return;
+      }
 
-    if (error) {
-      setError(
-        error.code === "EMAIL_NOT_VERIFIED"
-          ? "Verify your email first. We just sent you a new link."
-          : "Email or password is incorrect.",
-      );
-      return;
+      await navigate({ to: "/library" });
+    } catch {
+      setError("Couldn't reach Kyno. Check your connection and try again.");
+    } finally {
+      setIsPending(false);
     }
-
-    await navigate({ to: "/library" });
   }
 
   return (

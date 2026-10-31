@@ -1,14 +1,5 @@
-import { z } from "zod";
+import type { components } from "./api.gen";
 
-export const UserRoleSchema = z.enum(["user", "admin"]);
+export type User = components["schemas"]["User"];
 
-export type UserRole = z.infer<typeof UserRoleSchema>;
-
-export const MeResponseSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  email: z.email(),
-  role: UserRoleSchema,
-});
-
-export type MeResponse = z.infer<typeof MeResponseSchema>;
+export type UserRole = User["role"];
