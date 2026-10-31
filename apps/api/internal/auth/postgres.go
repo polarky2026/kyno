@@ -99,7 +99,38 @@ func toUser(row db.User) User {
 		Name:            row.Name,
 		PasswordHash:    row.PasswordHash,
 		EmailVerifiedAt: row.EmailVerifiedAt,
+		Role:            row.Role,
 	}
+}
+
+func (s *PostgresStore) CreateSession(ctx context.Context, userID uuid.UUID, tokenHash []byte, expiresAt time.Time) error {
+	return s.queries.CreateSession(ctx, db.CreateSessionParams{
+		UserID:    userID,
+		TokenHash: tokenHash,
+		ExpiresAt: expiresAt,
+	})
+}
+
+func (s *PostgresStore) GetSession(ctx context.Context, tokenHash []byte) (StoredSession, error) {
+	row, err := s.queries.GetSessionWithUser(ctx, tokenHash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return StoredSession{}, ErrNotFound
+	}
+	if err != nil {
+		return StoredSession{}, err
+	}
+	return StoredSession{User: toUser(row.User), ExpiresAt: row.ExpiresAt}, nil
+}
+
+func (s *PostgresStore) ExtendSession(ctx context.Context, tokenHash []byte, expiresAt time.Time) error {
+	return s.queries.ExtendSession(ctx, db.ExtendSessionParams{
+		TokenHash: tokenHash,
+		ExpiresAt: expiresAt,
+	})
+}
+
+func (s *PostgresStore) DeleteSession(ctx context.Context, tokenHash []byte) error {
+	return s.queries.DeleteSession(ctx, tokenHash)
 }
 
 func isUniqueViolation(err error) bool {

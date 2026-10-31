@@ -11,14 +11,17 @@ import (
 
 const maxRequestBodyBytes = 1 << 20
 
-type Server struct {
-	auth *auth.Service
+type Options struct {
+	SecureCookies bool
 }
 
-var _ StrictServerInterface = (*Server)(nil)
+type Server struct {
+	auth          *auth.Service
+	secureCookies bool
+}
 
-func NewHandler(authService *auth.Service) http.Handler {
-	server := &Server{auth: authService}
+func NewHandler(authService *auth.Service, opts Options) http.Handler {
+	server := &Server{auth: authService, secureCookies: opts.SecureCookies}
 
 	strict := NewStrictHandlerWithOptions(server, nil, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  handleRequestError,
@@ -28,7 +31,7 @@ func NewHandler(authService *auth.Service) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/", notFound)
 
-	return http.MaxBytesHandler(HandlerFromMux(strict, mux), maxRequestBodyBytes)
+	return http.MaxBytesHandler(server.withSession(HandlerFromMux(strict, mux)), maxRequestBodyBytes)
 }
 
 func (s *Server) GetHealth(_ context.Context, _ GetHealthRequestObject) (GetHealthResponseObject, error) {

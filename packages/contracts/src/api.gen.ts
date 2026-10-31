@@ -50,7 +50,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Verify an email address with the token from the verification email */
+        /**
+         * Verify an email address and sign in
+         * @description Verifying an email signs the user in. Web clients receive the session as an HttpOnly cookie. Clients that send X-Kyno-Client: ios receive the session token in the body instead.
+         */
         post: operations["verifyEmail"];
         delete?: never;
         options?: never;
@@ -72,6 +75,63 @@ export interface paths {
          * @description Always responds 202, so the endpoint never reveals which emails have accounts.
          */
         post: operations["resendVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with email and password
+         * @description Web clients receive the session as an HttpOnly cookie. Clients that send X-Kyno-Client: ios receive the session token in the body instead.
+         */
+        post: operations["signIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/sign-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End the current session
+         * @description Always responds 204, even when there is no session to end.
+         */
+        post: operations["signOut"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the signed-in user */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -101,9 +161,36 @@ export interface components {
         ResendVerificationRequest: {
             email: string;
         };
+        SignInRequest: {
+            email: string;
+            password: string;
+        };
+        User: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            email: string;
+            /** @enum {string} */
+            role: "user" | "admin";
+        };
+        SessionToken: {
+            token: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        AuthResponse: {
+            user: components["schemas"]["User"];
+            session?: components["schemas"]["SessionToken"];
+        };
+        MeResponse: {
+            user: components["schemas"]["User"];
+        };
     };
     responses: never;
-    parameters: never;
+    parameters: {
+        /** @description Send "ios" to receive the session token in the body instead of a cookie. */
+        KynoClient: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -164,7 +251,10 @@ export interface operations {
     verifyEmail: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Send "ios" to receive the session token in the body instead of a cookie. */
+                "X-Kyno-Client"?: components["parameters"]["KynoClient"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -174,12 +264,14 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The email address was verified */
-            204: {
+            /** @description The email was verified and the user is signed in */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AuthResponse"];
+                };
             };
             /** @description The request is invalid */
             400: {
@@ -211,6 +303,107 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    signIn: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Send "ios" to receive the session token in the body instead of a cookie. */
+                "X-Kyno-Client"?: components["parameters"]["KynoClient"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignInRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthResponse"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The email or password is incorrect */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The email is not verified; a new verification link was sent */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    signOut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The session ended */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The signed-in user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+            /** @description There is no valid session */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
         };
     };

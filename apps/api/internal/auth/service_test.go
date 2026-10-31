@@ -20,12 +20,18 @@ type storedToken struct {
 }
 
 type fakeStore struct {
-	users  map[string]User
-	tokens []storedToken
+	users    map[string]User
+	tokens   []storedToken
+	sessions map[string]fakeSession
+}
+
+type fakeSession struct {
+	userID    uuid.UUID
+	expiresAt time.Time
 }
 
 func newFakeStore() *fakeStore {
-	return &fakeStore{users: map[string]User{}}
+	return &fakeStore{users: map[string]User{}, sessions: map[string]fakeSession{}}
 }
 
 func (f *fakeStore) GetUserByEmail(_ context.Context, email string) (User, error) {
@@ -41,7 +47,7 @@ func (f *fakeStore) CreateUserWithVerificationToken(_ context.Context, u NewUser
 		return ErrEmailTaken
 	}
 	hash := u.PasswordHash
-	user := User{ID: uuid.New(), Email: u.Email, Name: u.Name, PasswordHash: &hash}
+	user := User{ID: uuid.New(), Email: u.Email, Name: u.Name, PasswordHash: &hash, Role: "user"}
 	f.users[u.Email] = user
 	f.tokens = append(f.tokens, storedToken{hash: tokenHash, userID: user.ID, expiresAt: expiresAt})
 	return nil
@@ -273,4 +279,35 @@ func TestResendVerificationIsSilentForUnknownOrVerifiedEmails(t *testing.T) {
 	if len(mailer.sent) != 0 {
 		t.Fatalf("sent = %+v, want no emails", mailer.sent)
 	}
+}
+
+func (f *fakeStore) CreateSession(_ context.Context, userID uuid.UUID, tokenHash []byte, expiresAt time.Time) error {
+	f.sessions[string(tokenHash)] = fakeSession{userID: userID, expiresAt: expiresAt}
+	return nil
+}
+
+func (f *fakeStore) GetSession(_ context.Context, tokenHash []byte) (StoredSession, error) {
+	s, ok := f.sessions[string(tokenHash)]
+	if !ok {
+		return StoredSession{}, ErrNotFound
+	}
+	for _, u := range f.users {
+		if u.ID == s.userID {
+			return StoredSession{User: u, ExpiresAt: s.expiresAt}, nil
+		}
+	}
+	return StoredSession{}, ErrNotFound
+}
+
+func (f *fakeStore) ExtendSession(_ context.Context, tokenHash []byte, expiresAt time.Time) error {
+	if s, ok := f.sessions[string(tokenHash)]; ok {
+		s.expiresAt = expiresAt
+		f.sessions[string(tokenHash)] = s
+	}
+	return nil
+}
+
+func (f *fakeStore) DeleteSession(_ context.Context, tokenHash []byte) error {
+	delete(f.sessions, string(tokenHash))
+	return nil
 }

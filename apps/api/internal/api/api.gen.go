@@ -11,8 +11,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for HealthResponseStatus.
@@ -30,6 +32,30 @@ func (e HealthResponseStatus) Valid() bool {
 	}
 }
 
+// Defines values for UserRole.
+const (
+	UserRoleAdmin UserRole = "admin"
+	UserRoleUser  UserRole = "user"
+)
+
+// Valid indicates whether the value is a known member of the UserRole enum.
+func (e UserRole) Valid() bool {
+	switch e {
+	case UserRoleAdmin:
+		return true
+	case UserRoleUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// AuthResponse defines model for AuthResponse.
+type AuthResponse struct {
+	Session *SessionToken `json:"session,omitempty"`
+	User    User          `json:"user"`
+}
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Error string `json:"error"`
@@ -43,9 +69,26 @@ type HealthResponse struct {
 // HealthResponseStatus defines model for HealthResponse.Status.
 type HealthResponseStatus string
 
+// MeResponse defines model for MeResponse.
+type MeResponse struct {
+	User User `json:"user"`
+}
+
 // ResendVerificationRequest defines model for ResendVerificationRequest.
 type ResendVerificationRequest struct {
 	Email string `json:"email"`
+}
+
+// SessionToken defines model for SessionToken.
+type SessionToken struct {
+	ExpiresAt time.Time `json:"expiresAt"`
+	Token     string    `json:"token"`
+}
+
+// SignInRequest defines model for SignInRequest.
+type SignInRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 // SignUpRequest defines model for SignUpRequest.
@@ -56,13 +99,42 @@ type SignUpRequest struct {
 	Password string `json:"password"`
 }
 
+// User defines model for User.
+type User struct {
+	Email string             `json:"email"`
+	Id    openapi_types.UUID `json:"id"`
+	Name  string             `json:"name"`
+	Role  UserRole           `json:"role"`
+}
+
+// UserRole defines model for User.Role.
+type UserRole string
+
 // VerifyEmailRequest defines model for VerifyEmailRequest.
 type VerifyEmailRequest struct {
 	Token string `json:"token"`
 }
 
+// KynoClient defines model for KynoClient.
+type KynoClient = string
+
+// SignInParams defines parameters for SignIn.
+type SignInParams struct {
+	// XKynoClient Send "ios" to receive the session token in the body instead of a cookie.
+	XKynoClient *KynoClient `json:"X-Kyno-Client,omitempty"`
+}
+
+// VerifyEmailParams defines parameters for VerifyEmail.
+type VerifyEmailParams struct {
+	// XKynoClient Send "ios" to receive the session token in the body instead of a cookie.
+	XKynoClient *KynoClient `json:"X-Kyno-Client,omitempty"`
+}
+
 // ResendVerificationJSONRequestBody defines body for ResendVerification for application/json ContentType.
 type ResendVerificationJSONRequestBody = ResendVerificationRequest
+
+// SignInJSONRequestBody defines body for SignIn for application/json ContentType.
+type SignInJSONRequestBody = SignInRequest
 
 // SignUpJSONRequestBody defines body for SignUp for application/json ContentType.
 type SignUpJSONRequestBody = SignUpRequest
@@ -75,15 +147,24 @@ type ServerInterface interface {
 	// ResendVerification Send a new verification email
 	// (POST /api/auth/resend-verification)
 	ResendVerification(w http.ResponseWriter, r *http.Request)
+	// SignIn Sign in with email and password
+	// (POST /api/auth/sign-in)
+	SignIn(w http.ResponseWriter, r *http.Request, params SignInParams)
+	// SignOut End the current session
+	// (POST /api/auth/sign-out)
+	SignOut(w http.ResponseWriter, r *http.Request)
 	// SignUp Create an account and send a verification email
 	// (POST /api/auth/sign-up)
 	SignUp(w http.ResponseWriter, r *http.Request)
-	// VerifyEmail Verify an email address with the token from the verification email
+	// VerifyEmail Verify an email address and sign in
 	// (POST /api/auth/verify-email)
-	VerifyEmail(w http.ResponseWriter, r *http.Request)
+	VerifyEmail(w http.ResponseWriter, r *http.Request, params VerifyEmailParams)
 	// GetHealth Check that the API is running
 	// (GET /api/health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+	// GetMe Get the signed-in user
+	// (GET /api/me)
+	GetMe(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -100,6 +181,61 @@ func (siw *ServerInterfaceWrapper) ResendVerification(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ResendVerification(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SignIn operation middleware
+func (siw *ServerInterfaceWrapper) SignIn(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SignInParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-Kyno-Client" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Kyno-Client")]; found {
+		var XKynoClient KynoClient
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Kyno-Client", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Kyno-Client", valueList[0], &XKynoClient, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Kyno-Client", Err: err})
+			return
+		}
+
+		params.XKynoClient = &XKynoClient
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SignIn(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SignOut operation middleware
+func (siw *ServerInterfaceWrapper) SignOut(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SignOut(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -126,8 +262,35 @@ func (siw *ServerInterfaceWrapper) SignUp(w http.ResponseWriter, r *http.Request
 // VerifyEmail operation middleware
 func (siw *ServerInterfaceWrapper) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params VerifyEmailParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-Kyno-Client" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Kyno-Client")]; found {
+		var XKynoClient KynoClient
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Kyno-Client", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Kyno-Client", valueList[0], &XKynoClient, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Kyno-Client", Err: err})
+			return
+		}
+
+		params.XKynoClient = &XKynoClient
+
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.VerifyEmail(w, r)
+		siw.Handler.VerifyEmail(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -142,6 +305,20 @@ func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMe operation middleware
+func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMe(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -275,6 +452,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/auth/sign-up", wrapper.SignUp)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/auth/verify-email", wrapper.VerifyEmail)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/auth/resend-verification", wrapper.ResendVerification)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/auth/sign-in", wrapper.SignIn)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/auth/sign-out", wrapper.SignOut)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/me", wrapper.GetMe)
 
 	return m
 }
@@ -292,6 +472,86 @@ type ResendVerification202Response struct {
 
 func (response ResendVerification202Response) VisitResendVerificationResponse(w http.ResponseWriter) error {
 	w.WriteHeader(202)
+	return nil
+}
+
+type SignInRequestObject struct {
+	Params SignInParams
+	Body   *SignInJSONRequestBody
+}
+
+type SignInResponseObject interface {
+	VisitSignInResponse(w http.ResponseWriter) error
+}
+
+type SignIn200JSONResponse AuthResponse
+
+func (response SignIn200JSONResponse) VisitSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SignIn400JSONResponse ErrorResponse
+
+func (response SignIn400JSONResponse) VisitSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SignIn401JSONResponse ErrorResponse
+
+func (response SignIn401JSONResponse) VisitSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SignIn403JSONResponse ErrorResponse
+
+func (response SignIn403JSONResponse) VisitSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SignOutRequestObject struct {
+}
+
+type SignOutResponseObject interface {
+	VisitSignOutResponse(w http.ResponseWriter) error
+}
+
+type SignOut204Response struct {
+}
+
+func (response SignOut204Response) VisitSignOutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
 	return nil
 }
 
@@ -326,19 +586,26 @@ func (response SignUp400JSONResponse) VisitSignUpResponse(w http.ResponseWriter)
 }
 
 type VerifyEmailRequestObject struct {
-	Body *VerifyEmailJSONRequestBody
+	Params VerifyEmailParams
+	Body   *VerifyEmailJSONRequestBody
 }
 
 type VerifyEmailResponseObject interface {
 	VisitVerifyEmailResponse(w http.ResponseWriter) error
 }
 
-type VerifyEmail204Response struct {
-}
+type VerifyEmail200JSONResponse AuthResponse
 
-func (response VerifyEmail204Response) VisitVerifyEmailResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
+func (response VerifyEmail200JSONResponse) VisitVerifyEmailResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type VerifyEmail400JSONResponse ErrorResponse
@@ -376,20 +643,64 @@ func (response GetHealth200JSONResponse) VisitGetHealthResponse(w http.ResponseW
 	return err
 }
 
+type GetMeRequestObject struct {
+}
+
+type GetMeResponseObject interface {
+	VisitGetMeResponse(w http.ResponseWriter) error
+}
+
+type GetMe200JSONResponse MeResponse
+
+func (response GetMe200JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMe401JSONResponse ErrorResponse
+
+func (response GetMe401JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ResendVerification Send a new verification email
 	// (POST /api/auth/resend-verification)
 	ResendVerification(ctx context.Context, request ResendVerificationRequestObject) (ResendVerificationResponseObject, error)
+	// SignIn Sign in with email and password
+	// (POST /api/auth/sign-in)
+	SignIn(ctx context.Context, request SignInRequestObject) (SignInResponseObject, error)
+	// SignOut End the current session
+	// (POST /api/auth/sign-out)
+	SignOut(ctx context.Context, request SignOutRequestObject) (SignOutResponseObject, error)
 	// SignUp Create an account and send a verification email
 	// (POST /api/auth/sign-up)
 	SignUp(ctx context.Context, request SignUpRequestObject) (SignUpResponseObject, error)
-	// VerifyEmail Verify an email address with the token from the verification email
+	// VerifyEmail Verify an email address and sign in
 	// (POST /api/auth/verify-email)
 	VerifyEmail(ctx context.Context, request VerifyEmailRequestObject) (VerifyEmailResponseObject, error)
 	// GetHealth Check that the API is running
 	// (GET /api/health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
+	// GetMe Get the signed-in user
+	// (GET /api/me)
+	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -462,6 +773,63 @@ func (sh *strictHandler) ResendVerification(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// SignIn operation middleware
+func (sh *strictHandler) SignIn(w http.ResponseWriter, r *http.Request, params SignInParams) {
+	var request SignInRequestObject
+
+	request.Params = params
+
+	var body SignInJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SignIn(ctx, request.(SignInRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SignIn")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SignInResponseObject); ok {
+		if err := validResponse.VisitSignInResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SignOut operation middleware
+func (sh *strictHandler) SignOut(w http.ResponseWriter, r *http.Request) {
+	var request SignOutRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SignOut(ctx, request.(SignOutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SignOut")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SignOutResponseObject); ok {
+		if err := validResponse.VisitSignOutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // SignUp operation middleware
 func (sh *strictHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 	var request SignUpRequestObject
@@ -494,8 +862,10 @@ func (sh *strictHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 }
 
 // VerifyEmail operation middleware
-func (sh *strictHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) VerifyEmail(w http.ResponseWriter, r *http.Request, params VerifyEmailParams) {
 	var request VerifyEmailRequestObject
+
+	request.Params = params
 
 	var body VerifyEmailJSONRequestBody
 	if err := runtime.BindJSONBody(r, &body); err != nil {
@@ -541,6 +911,30 @@ func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetHealthResponseObject); ok {
 		if err := validResponse.VisitGetHealthResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMe operation middleware
+func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
+	var request GetMeRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMe(ctx, request.(GetMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMe")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMeResponseObject); ok {
+		if err := validResponse.VisitGetMeResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

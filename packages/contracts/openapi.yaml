@@ -41,8 +41,14 @@ paths:
   /api/auth/verify-email:
     post:
       operationId: verifyEmail
-      summary: Verify an email address with the token from the verification email
+      summary: Verify an email address and sign in
+      description: >
+        Verifying an email signs the user in. Web clients receive the session as
+        an HttpOnly cookie. Clients that send X-Kyno-Client: ios receive the
+        session token in the body instead.
       tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/KynoClient"
       requestBody:
         required: true
         content:
@@ -50,8 +56,12 @@ paths:
             schema:
               $ref: "#/components/schemas/VerifyEmailRequest"
       responses:
-        "204":
-          description: The email address was verified
+        "200":
+          description: The email was verified and the user is signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
         "400":
           description: The request is invalid
           content:
@@ -73,7 +83,83 @@ paths:
       responses:
         "202":
           description: The request was accepted
+  /api/auth/sign-in:
+    post:
+      operationId: signIn
+      summary: Sign in with email and password
+      description: >
+        Web clients receive the session as an HttpOnly cookie. Clients that send
+        X-Kyno-Client: ios receive the session token in the body instead.
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/KynoClient"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignInRequest"
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: The email or password is incorrect
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: The email is not verified; a new verification link was sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/auth/sign-out:
+    post:
+      operationId: signOut
+      summary: End the current session
+      description: Always responds 204, even when there is no session to end.
+      tags: [auth]
+      responses:
+        "204":
+          description: The session ended
+  /api/me:
+    get:
+      operationId: getMe
+      summary: Get the signed-in user
+      tags: [account]
+      responses:
+        "200":
+          description: The signed-in user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "401":
+          description: There is no valid session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
+  parameters:
+    KynoClient:
+      name: X-Kyno-Client
+      in: header
+      required: false
+      description: Send "ios" to receive the session token in the body instead of a cookie.
+      schema:
+        type: string
   schemas:
     HealthResponse:
       type: object
@@ -116,3 +202,48 @@ components:
       properties:
         email:
           type: string
+    SignInRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+    User:
+      type: object
+      required: [id, name, email, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [user, admin]
+    SessionToken:
+      type: object
+      required: [token, expiresAt]
+      properties:
+        token:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+    AuthResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        session:
+          $ref: "#/components/schemas/SessionToken"
+    MeResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"

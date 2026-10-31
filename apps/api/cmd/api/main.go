@@ -50,7 +50,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           api.NewHandler(authService),
+		Handler:           api.NewHandler(authService, api.Options{SecureCookies: cfg.AppEnv == "production"}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,
